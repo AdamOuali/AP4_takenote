@@ -5,16 +5,13 @@ bannerPath="$SCRIPT_DIR/lib/asset/banner.txt"
 noteDirPath="$SCRIPT_DIR/notes"
 
 ### functions
+length(){ echo $#;}
+
 getCustomLine(){
 	read -p "~ " $1
 }
 
-setNewNote (){
-	# get Note Title 
-	read -p "Note Title : " note_title
-	note_title="$(echo $note_title | tr '/ [\\/:*?\"<>|]/g' _)"
-	note_title=$note_title"_$(date +%d-%m-%Y_H%H)"
-	FULLPATH="$noteDirPath/$note_title.txt"
+multilineAppend (){
 	printf "Content :\n(type \"exit\" to end your note)\n\n" content_to_add
 	getCustomLine current_read_line
 	content_to_add=""
@@ -23,40 +20,20 @@ setNewNote (){
 		content_to_add="$content_to_add$current_read_line\n"
 		getCustomLine current_read_line
 	done
-	touch $FULLPATH
-	printf "$content_to_add" >> $FULLPATH
+	printf "$content_to_add" >> "$1"
 }
 
 getNote (){
-	find $noteDirPath | fzf | xargs cat
+	ls -1t $noteDirPath 
 }
 
-# TODO REFACTO
-getLastNote (){
-	LASTFILENAME=$(ls -l $noteDirPath | tail -n1 | awk '{print $9}')
-	cat $noteDirPath/$LASTFILENAME
+addPrefixe (){
+	echo "$(date +%d-%m-%Y_H%H).txt"
 }
 
-getThreeLastNotes (){
-	LASTFILENAME1=$(ls -l $noteDirPath | tail -n3 | awk '{print $9}' | head -n1)
-	LASTFILENAME2=$(ls -l $noteDirPath | tail -n3 | awk '{print $9}' | tail -n2 | head -n1)
-	LASTFILENAME3=$(ls -l $noteDirPath | tail -n3 | awk '{print $9}' | tail -n1)
-
-	printf "\n####### 3 DERNIERES NOTES #######\n"
-
-	printf "--- Antépénultième :\n"
-	cat $noteDirPath/$LASTFILENAME1	
-	printf "\n"
-	
-	printf "--- Pénultième :\n"
-	cat $noteDirPath/$LASTFILENAME2
-	printf "\n"
-	
-	printf "--- Dernière :\n"
-	cat $noteDirPath/$LASTFILENAME3
-	printf "\n" 
+getNLastNotes (){
+	getNote | head -$1
 }
-
 
 ### MAIN PROG
 
@@ -69,16 +46,51 @@ if [ ! -d $noteDirPath ];then
 	printf "Le répertoire de stockage n'existe pas. Création du répertoire effectué."
 fi
 
+function guiFunc(){
+	### banner display
+	if [ -f $bannerPath ];then
+		cat $bannerPath
+	fi
+
+	### menu display
+	choice=$(printf "# 1 . Ajouter une note\n# 2 . Consulter une note\n# 3 . Consulter la dernière entrée\n# 4 . Consulter les 3 dernières notes" | fzf --tac --cycle --no-info --height 5 | awk '{print $2}')
+	
+
+	### choices
+	case $choice in
+		1 )
+		read -p "Note Title : " note_title
+		$SCRIPT_DIR/takenote.sh -y -t $note_title
+		;;
+		2 )
+		$SCRIPT_DIR/takenote.sh -y -c -s
+		;;
+		3 )
+		$SCRIPT_DIR/takenote.sh -y -s
+		;;
+		4 )
+		$SCRIPT_DIR/takenote.sh -y -l 3 -s
+		;;
+	esac
+}
+
 SELECT_COMMAND=""
 ACTION_COMMAND=""
-SELECT_ARG=""
-ACTION_ARG=""
-last_option_type_read="SELECT"
+INTERACTIVE_COMMAND=""
+SELECT_ARG=()
+ACTION_ARG=()
+last_option_type_read=""
+## If no arg launch GUI
+if [ $# -eq "0" ]; then
+	guiFunc
+	exit 0
+fi
+
 ### Manage Option
 for arg in $@; do
 	case $arg in
 		-t | -c | -l )
-			if [ -z $SELECT_COMMAND ]; then
+			if [ ! -z $SELECT_COMMAND ]; then
 				printf "Error: to many SELECT argument\n"
 				exit 0
 			fi
@@ -86,56 +98,92 @@ for arg in $@; do
 			last_option_type_read="S"
 			;;
 		-e | -a | -r | -s)
-			if [ -z $ACTION_COMMAND ]; then
+			if [ ! -z $ACTION_COMMAND ]; then
 				printf "Error: to many ACTION argument\n"
 				exit 0
 			fi
 			ACTION_COMMAND=$arg
 			last_option_type_read=""
 			;;
+		-y)
+			INTERACTIVE_COMMAND="1"
+		;;
 		*)
-			if [ -z $last_option_type_read]; then
-				ACTION_ARG="$ACTION_ARG$arg\n"
+			if [ -z $last_option_type_read ]; then
+				ACTION_ARG+=("$arg")
 			else
-				SELECT_ARG="$SELECT_ARG$arg\n"
+				SELECT_ARG+=("$(echo $arg | tr '/ [\\/:*?\"<>|]/g' _)")
 			fi
 			;;
 	esac
 done
 
-
 case $SELECT_COMMAND in
-	-t )
-	;;
 	-c )
+		SELECT_ARG=$(getNote | fzf -m --height 10)
+		INTERACTIVE_COMMAND="1"
+	;;
+	-t )
+		tmpList=()
+		for selectArgs in ${SELECT_ARG[@]}; do
+			tmpNoteTitle=$(getNote | grep $selectArgs )
+			if [ ! -z "$tmpNoteTitle" ];then
+				tmpList+=( "$tmpNoteTitle" )
+			else
+				tmpList+=( "$selectArgs""_[new]" )
+			fi
+		done
+		SELECT_ARG=( ${tmpList[@]} )
 	;;
 	-l )
+		if [ -n "$SELECT_ARG" ] && [ "$SELECT_ARG" -eq "$SELECT_ARG" ]; then
+			SELECT_ARG=( $(getNLastNotes $SELECT_ARG) )
+		else
+			printf "Error: Missing argument for option -l (Number of Notes)\n"
+			exit 0
+		fi
+	;;
+	*)
+		SELECT_ARG=( $(getNLastNotes 1) )
 	;;
 esac
-		
-### banner display
-if [ -f $bannerPath ];then
-	cat $bannerPath
-fi
+### Check if take have been selected
 
-### menu display
-printf "# 1. Ajouter une note
-# 2. Consulter une note
-# 3. Consulter la dernière entrée
-# 4. Consulter les 3 dernières notes
-\n---------------------------------------\n
-"
-read -p "Choix :" choice
-
-### choices
-if [ "$choice" = "1" ]; then
-	setNewNote
-elif [ "$choice" = "2" ]; then 
-	getNote
-elif [ "$choice" = "3" ]; then  
-	getLastNote
-elif [ "$choice" = "4" ]; then 
-	getThreeLastNotes
-else
-	./takenote.sh
+if [ ${#SELECT_ARG[@]} -lt 1 ]; then
+	printf "Error: please select at least 1 valid note title\n"
+	exit 1
 fi
+if [ -z $INTERACTIVE_COMMAND ]; then
+	echo "==============================="
+	for t in ${SELECT_ARG[@]}; do
+		printf "$t\n"
+	done
+	read -p "good notes ?[Y/n] :" choice
+	if !([ -z $choice ] || ! ( [ $choice = "n" ] || [ $choice = "N" ] ));then
+		exit 1
+	fi
+	echo "==============================="
+fi
+SELECT_ARG=(${SELECT_ARG[@]//"[new]"/"$(addPrefixe)"})
+for t in ${SELECT_ARG[@]}; do
+	touch "$noteDirPath/$t"
+	case $ACTION_COMMAND in
+		-e )
+			nano -R "$noteDirPath/$t"
+		;;
+		-s )
+			less "$noteDirPath/$t"
+		;;
+		-r )
+			rm -f "$noteDirPath/$t"
+			printf "$t Note Deleted\n"
+		;;
+		*)
+			if [ ! -z $ACTION_ARG ]; then
+				echo $ACTION_ARG >> "$noteDirPath/$t"
+			else
+				multilineAppend "$noteDirPath/$t"
+			fi
+		;;
+	esac
+done
