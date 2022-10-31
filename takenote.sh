@@ -29,12 +29,12 @@ getNote (){
 
 getNewNoteTitle (){
 	read -p "Note Title : " note_title
-	echo $note_title
+	echo "$note_title" | tr '/[\\/:*?\"\ <> |]/g' '_'
 }
 
 newNote (){
-	note_title=$(getNewNoteTitle)
-	$SCRIPT_DIR/takenote.sh -y -t $note_title 
+	note_title="$(getNewNoteTitle)"
+	$SCRIPT_DIR/takenote.sh -y -t "$note_title"
 }
 
 addPrefixe (){
@@ -43,7 +43,7 @@ addPrefixe (){
 
 getNLastNotes (){
 	lastNotes=$(getNote | head -$1)
-	if [ -z $lastNotes ];then
+	if [ -z "$lastNotes" ];then
 		echo "$(getNewNoteTitle)""_[new]"
 	fi
 	echo $lastNotes
@@ -100,12 +100,12 @@ if [ $# -eq "0" ]; then
 fi
 
 ### Manage Option
-for arg in $@; do
+for arg in "$@"; do
 	case $arg in
 		-t | -c | -l )
 			if [ ! -z $SELECT_COMMAND ]; then
 				printf "Error: to many SELECT argument\n"
-				exit 0
+				exit 1
 			fi
 			SELECT_COMMAND=$arg
 			last_option_type_read="S"
@@ -113,7 +113,7 @@ for arg in $@; do
 		-e | -a | -r | -s)
 			if [ ! -z $ACTION_COMMAND ]; then
 				printf "Error: to many ACTION argument\n"
-				exit 0
+				exit 1
 			fi
 			ACTION_COMMAND=$arg
 			last_option_type_read=""
@@ -125,7 +125,7 @@ for arg in $@; do
 			if [ -z $last_option_type_read ]; then
 				ACTION_ARG+=("$arg")
 			else
-				SELECT_ARG+=("$(echo $arg | tr '/ [\\/:*?\"<>|]/g' _)")
+				SELECT_ARG+=("$(echo $arg | tr '/[\\/:*?\"\ <> |]/g' _)")
 			fi
 			;;
 	esac
@@ -153,11 +153,11 @@ case $SELECT_COMMAND in
 			SELECT_ARG=( $(getNLastNotes $SELECT_ARG) )
 		else
 			printf "Error: Missing argument for option -l (Number of Notes)\n"
-			exit 0
+			exit 1
 		fi
 	;;
 	*)
-		SELECT_ARG=( $(getNLastNotes 1) )
+		SELECT_ARG=( "$(getNLastNotes 1)" )
 	;;
 esac
 ### Check if take have been selected

@@ -2,6 +2,10 @@
 
 Script to take note in term
 
+## INSTALL
+
+execute the ./takenote.sh script
+
 ## Man PAGE
 
 ### NAME
@@ -18,6 +22,9 @@ The commande is splited in 2 parts:
 
 - the selector argument
 - the action argument
+
+-y
+> Disable intercativ mode. Don't ask you to confirm chosen notes.
 
 #### SELECTOR
 
