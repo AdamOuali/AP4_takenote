@@ -12,6 +12,7 @@ getCustomLine(){
 }
 
 multilineAppend (){
+	echo "$1"
 	printf "Content :\n(type \"exit\" to end your note)\n\n" content_to_add
 	getCustomLine current_read_line
 	content_to_add=""
@@ -20,7 +21,8 @@ multilineAppend (){
 		content_to_add="$content_to_add$current_read_line\n"
 		getCustomLine current_read_line
 	done
-	printf "$content_to_add" >> "$1"
+	printf "\n"
+	printf "$content_to_add" >> "$noteDirPath/$1"
 }
 
 getNote (){
@@ -28,7 +30,10 @@ getNote (){
 }
 
 getNewNoteTitle (){
-	read -p "Note Title : " note_title
+	note_title=""
+	while [ -z $note_title ];do
+		read -p "Note Title : " note_title
+	done
 	echo "$note_title" | tr '/[\\/:*?\"\ <> |]/g' '_'
 }
 
@@ -195,7 +200,7 @@ for t in ${SELECT_ARG[@]}; do
 			if [ ! -z $ACTION_ARG ]; then
 				echo $ACTION_ARG >> "$noteDirPath/$t"
 			else
-				multilineAppend "$noteDirPath/$t"
+				multilineAppend "$t"
 			fi
 		;;
 	esac
