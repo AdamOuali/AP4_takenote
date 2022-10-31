@@ -24,7 +24,17 @@ multilineAppend (){
 }
 
 getNote (){
-	ls -1t $noteDirPath 
+	ls -1t $noteDirPath
+}
+
+getNewNoteTitle (){
+	read -p "Note Title : " note_title
+	echo $note_title
+}
+
+newNote (){
+	note_title=$(getNewNoteTitle)
+	$SCRIPT_DIR/takenote.sh -y -t $note_title 
 }
 
 addPrefixe (){
@@ -32,7 +42,11 @@ addPrefixe (){
 }
 
 getNLastNotes (){
-	getNote | head -$1
+	lastNotes=$(getNote | head -$1)
+	if [ -z $lastNotes ];then
+		echo "$(getNewNoteTitle)""_[new]"
+	fi
+	echo $lastNotes
 }
 
 ### MAIN PROG
@@ -59,8 +73,7 @@ function guiFunc(){
 	### choices
 	case $choice in
 		1 )
-		read -p "Note Title : " note_title
-		$SCRIPT_DIR/takenote.sh -y -t $note_title
+		newNote
 		;;
 		2 )
 		$SCRIPT_DIR/takenote.sh -y -c -s
